@@ -98,9 +98,26 @@ jobs:
           name: release-${{ matrix.target }}
           path: dscode-${{ matrix.target }}.${{ matrix.archive }}
 
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Verify npm publish access
+        shell: bash
+        run: |
+          npm whoami
+          npm access list packages @dscode
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET }}
+
   github-release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -114,7 +131,7 @@ jobs:
 
   crates-io:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: github-release
+    needs: [github-release, preflight]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,7 +147,7 @@ jobs:
 
   npm:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: [build, preflight]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
