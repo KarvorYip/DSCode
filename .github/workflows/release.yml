@@ -74,6 +74,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
+          cp LICENSE dist/LICENSE
           cp target/${{ matrix.target }}/release/${{ matrix.exe }} dist/${{ matrix.exe }}
           if [[ -n "${{ matrix.npm }}" ]]; then
             mkdir -p npm/platforms/${{ matrix.npm }}/bin
@@ -82,11 +83,11 @@ jobs:
       - name: Archive Unix
         if: matrix.archive == 'tar.gz'
         shell: bash
-        run: tar -C dist -czf dscode-${{ matrix.target }}.tar.gz ${{ matrix.exe }}
+        run: tar -C dist -czf dscode-${{ matrix.target }}.tar.gz ${{ matrix.exe }} LICENSE
       - name: Archive Windows
         if: matrix.archive == 'zip'
         shell: pwsh
-        run: Compress-Archive -Path dist/${{ matrix.exe }} -DestinationPath dscode-${{ matrix.target }}.zip
+        run: Compress-Archive -Path dist/${{ matrix.exe }},dist/LICENSE -DestinationPath dscode-${{ matrix.target }}.zip
       - if: matrix.npm
         uses: actions/upload-artifact@v4
         with:
