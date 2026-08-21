@@ -1,0 +1,12 @@
+/target
+session-*.jsonl
+
+# Dotfiles and dot-directories are ignored by default; the project-level
+# .dscode config and .gitignore itself are carved out.
+**/.*
+!.gitignore
+!.github
+!.github/**
+!.dscode
+mock-demo.txt
+/AGENTS.local.md

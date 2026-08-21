@@ -1,0 +1,16 @@
+{
+  "name": "@dscode/darwin-arm64",
+  "version": "0.1.0",
+  "description": "DSCode binary for macOS arm64",
+  "repository": "github:KarvorYip/DSCode",
+  "license": "UNLICENSED",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/dscode"
+  ]
+}

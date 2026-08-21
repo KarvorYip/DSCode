@@ -1,0 +1,16 @@
+{
+  "name": "@dscode/linux-arm64",
+  "version": "0.1.0",
+  "description": "DSCode binary for Linux arm64",
+  "repository": "github:KarvorYip/DSCode",
+  "license": "UNLICENSED",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/dscode"
+  ]
+}

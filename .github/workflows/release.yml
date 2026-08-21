@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            npm: win32-x64
+            exe: dscode.exe
+            archive: zip
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            npm: ""
+            exe: dscode.exe
+            archive: zip
+            gnu: true
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            npm: linux-x64
+            exe: dscode
+            archive: tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            npm: linux-arm64
+            exe: dscode
+            archive: tar.gz
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            npm: darwin-x64
+            exe: dscode
+            archive: tar.gz
+          - os: macos-14
+            target: aarch64-apple-darwin
+            npm: darwin-arm64
+            exe: dscode
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.gnu
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Configure GNU linker
+        if: matrix.gnu
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          $linker = Join-Path $env:MSYS2_LOCATION 'mingw64\bin\gcc.exe'
+          if (-not (Test-Path $linker)) { throw "GNU linker not found: $linker" }
+          "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=$linker" | Out-File $env:GITHUB_ENV -Append
+      - name: Build
+        shell: bash
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Stage
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/${{ matrix.exe }} dist/${{ matrix.exe }}
+          if [[ -n "${{ matrix.npm }}" ]]; then
+            mkdir -p npm/platforms/${{ matrix.npm }}/bin
+            cp target/${{ matrix.target }}/release/${{ matrix.exe }} npm/platforms/${{ matrix.npm }}/bin/${{ matrix.exe }}
+          fi
+      - name: Archive Unix
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: tar -C dist -czf dscode-${{ matrix.target }}.tar.gz ${{ matrix.exe }}
+      - name: Archive Windows
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: Compress-Archive -Path dist/${{ matrix.exe }} -DestinationPath dscode-${{ matrix.target }}.zip
+      - if: matrix.npm
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-${{ matrix.npm }}
+          path: npm/platforms/${{ matrix.npm }}/bin/${{ matrix.exe }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: dscode-${{ matrix.target }}.${{ matrix.archive }}
+
+  github-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  npm:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: npm-*
+          path: downloaded
+      - name: Assemble and publish platform packages
+        shell: bash
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          test "$(node -p "require('./npm/dscode/package.json').version")" = "$version"
+          for pkg in npm/platforms/*; do
+            name=$(basename "$pkg")
+            test "$(node -p "require('./$pkg/package.json').version")" = "$version"
+            mkdir -p "$pkg/bin"
+            cp downloaded/npm-$name/* "$pkg/bin/"
+            if [[ "$name" != win32-* ]]; then chmod +x "$pkg/bin/dscode"; fi
+            npm publish "$pkg" --access public
+          done
+          npm publish npm/dscode --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            gnu: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.gnu
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rustfmt
+      - name: Configure GNU linker
+        if: matrix.gnu
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          $linker = Join-Path $env:MSYS2_LOCATION 'mingw64\bin\gcc.exe'
+          $bashDir = Join-Path $env:MSYS2_LOCATION 'usr\bin'
+          if (-not (Test-Path $linker)) { throw "GNU linker not found: $linker" }
+          if (-not (Test-Path (Join-Path $bashDir 'bash.exe'))) { throw "MSYS2 Bash not found: $bashDir" }
+          $bashDir | Out-File -FilePath $env:GITHUB_PATH -Append
+          "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=$linker" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - run: cargo fmt --check
+      - run: cargo check --target ${{ matrix.target }}
+      - run: cargo test --target ${{ matrix.target }}
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          config: .github/.markdownlint-cli2.jsonc
+          globs: |
+            README.md
+            README.zh-CN.md
+            AGENTS.md
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress README.md README.zh-CN.md AGENTS.md
+          fail: true

@@ -1,0 +1,16 @@
+{
+  "name": "@dscode/win32-x64",
+  "version": "0.1.0",
+  "description": "DSCode binary for Windows x64",
+  "repository": "github:KarvorYip/DSCode",
+  "license": "UNLICENSED",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/dscode.exe"
+  ]
+}
