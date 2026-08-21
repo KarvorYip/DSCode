@@ -1,9 +1,9 @@
 {
   "name": "dscode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSCode terminal coding agent",
   "repository": "github:KarvorYip/DSCode",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "dscode": "bin/dscode.js"
   },
@@ -14,10 +14,10 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@dscode/win32-x64": "0.1.0",
-    "@dscode/linux-x64": "0.1.0",
-    "@dscode/linux-arm64": "0.1.0",
-    "@dscode/darwin-x64": "0.1.0",
-    "@dscode/darwin-arm64": "0.1.0"
+    "@dscode/win32-x64": "0.1.1",
+    "@dscode/linux-x64": "0.1.1",
+    "@dscode/linux-arm64": "0.1.1",
+    "@dscode/darwin-x64": "0.1.1",
+    "@dscode/darwin-arm64": "0.1.1"
   }
 }

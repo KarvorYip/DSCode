@@ -109,3 +109,7 @@ crates/dscode/
   src/hooks.rs          # 声明式事件 → block/rewrite/notify
   src/limits.rs         # 限额恢复：错误分类、退避阶梯、挂起运行时
 ```
+
+## 许可证
+
+MIT。详见 [LICENSE](LICENSE)。

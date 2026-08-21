@@ -142,3 +142,7 @@ crates/dscode/
   src/hooks.rs          # Declarative events → block/rewrite/notify
   src/limits.rs         # Limit recovery: error classification, backoff ladder, suspension runtime
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -1,9 +1,10 @@
 [package]
 name = "dscode"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "DSCode — event-sourced terminal coding agent"
 repository = "https://github.com/KarvorYip/DSCode"
+license = "MIT"
 
 [dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "native-tls"] }
