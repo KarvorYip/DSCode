@@ -1,5 +1,5 @@
 {
-  "name": "@dscode/linux-arm64",
+  "name": "@karvorprime/linux-arm64",
   "version": "0.1.1",
   "description": "DSCode binary for Linux arm64",
   "repository": "github:KarvorYip/DSCode",

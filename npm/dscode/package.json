@@ -14,10 +14,10 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@dscode/win32-x64": "0.1.1",
-    "@dscode/linux-x64": "0.1.1",
-    "@dscode/linux-arm64": "0.1.1",
-    "@dscode/darwin-x64": "0.1.1",
-    "@dscode/darwin-arm64": "0.1.1"
+    "@karvorprime/win32-x64": "0.1.1",
+    "@karvorprime/linux-x64": "0.1.1",
+    "@karvorprime/linux-arm64": "0.1.1",
+    "@karvorprime/darwin-x64": "0.1.1",
+    "@karvorprime/darwin-arm64": "0.1.1"
   }
 }

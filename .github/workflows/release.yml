@@ -111,7 +111,7 @@ jobs:
         shell: bash
         run: |
           npm whoami
-          npm access list packages @dscode
+          npm access list packages @karvorprime
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET }}
 

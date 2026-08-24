@@ -4,11 +4,11 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const key = `${process.platform}-${process.arch}`;
 const packages = {
-  'win32-x64': ['@dscode/win32-x64', 'dscode.exe'],
-  'linux-x64': ['@dscode/linux-x64', 'dscode'],
-  'linux-arm64': ['@dscode/linux-arm64', 'dscode'],
-  'darwin-x64': ['@dscode/darwin-x64', 'dscode'],
-  'darwin-arm64': ['@dscode/darwin-arm64', 'dscode'],
+  'win32-x64': ['@karvorprime/win32-x64', 'dscode.exe'],
+  'linux-x64': ['@karvorprime/linux-x64', 'dscode'],
+  'linux-arm64': ['@karvorprime/linux-arm64', 'dscode'],
+  'darwin-x64': ['@karvorprime/darwin-x64', 'dscode'],
+  'darwin-arm64': ['@karvorprime/darwin-arm64', 'dscode'],
 };
 const selected = packages[key];
 if (!selected) {
