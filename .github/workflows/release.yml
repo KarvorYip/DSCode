@@ -166,12 +166,22 @@ jobs:
           test "$(node -p "require('./npm/dscode/package.json').version")" = "$version"
           for pkg in npm/platforms/*; do
             name=$(basename "$pkg")
+            package_name=$(node -p "require('./$pkg/package.json').name")
             test "$(node -p "require('./$pkg/package.json').version")" = "$version"
             mkdir -p "$pkg/bin"
             cp downloaded/npm-$name/* "$pkg/bin/"
             if [[ "$name" != win32-* ]]; then chmod +x "$pkg/bin/dscode"; fi
-            npm publish "$pkg" --access public
+            if npm view "$package_name@$version" version >/dev/null 2>&1; then
+              echo "Skipping already published $package_name@$version"
+            else
+              npm publish "$pkg" --access public
+            fi
           done
-          npm publish ./npm/dscode --access public
+          package_name=$(node -p "require('./npm/dscode/package.json').name")
+          if npm view "$package_name@$version" version >/dev/null 2>&1; then
+            echo "Skipping already published $package_name@$version"
+          else
+            npm publish ./npm/dscode --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET }}
