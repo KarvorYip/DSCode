@@ -172,6 +172,6 @@ jobs:
             if [[ "$name" != win32-* ]]; then chmod +x "$pkg/bin/dscode"; fi
             npm publish "$pkg" --access public
           done
-          npm publish npm/dscode --access public
+          npm publish ./npm/dscode --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET }}
