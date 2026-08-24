@@ -9,7 +9,7 @@ Architecture in one sentence: on a tokio runtime, the `LlmProvider` trait drives
 ## Install
 
 ```bash
-npm install --global dscode
+npm install --global @karvorprime/dscode
 # or
 cargo binstall dscode
 ```

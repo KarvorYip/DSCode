@@ -9,7 +9,7 @@ DSCode 是单二进制 Rust 终端编码 Agent：事件溯源会话、ask/auto/y
 ## 安装
 
 ```bash
-npm install --global dscode
+npm install --global @karvorprime/dscode
 # 或
 cargo binstall dscode
 ```
