@@ -121,8 +121,8 @@ const SPECS: &[Spec] = &[
     Spec {
         command: Command::Goal,
         name: "goal",
-        usage_zh: "/goal [show|目标|edit|pause|resume|clear]",
-        usage_en: "/goal [show|objective|edit|pause|resume|clear]",
+        usage_zh: "/goal [show|<目标>|edit <目标>|pause|resume|clear]",
+        usage_en: "/goal [show|<objective>|edit <objective>|pause|resume|clear]",
         description_zh: "查看或管理 goal",
         description_en: "Show or manage a goal",
     },
@@ -226,7 +226,7 @@ pub fn unknown(lang: Lang, name: &str) -> String {
         Lang::En => format!("Unknown command: /{name}. Enter /help for available commands."),
     }
 }
-pub fn usage(lang: Lang, command: Command) -> String {
+pub fn usage_hint(lang: Lang, command: Command) -> String {
     match lang {
         Lang::Zh => format!("用法：{}", command.usage(lang)),
         Lang::En => format!("Usage: {}", command.usage(lang)),
@@ -253,6 +253,7 @@ fn spec(command: Command) -> &'static Spec {
 #[cfg(test)]
 mod tests {
     use super::{parse, Command, Frontend, Parsed};
+    use crate::i18n::Lang;
 
     #[test]
     fn 已注册命令保留参数边界() {
@@ -280,5 +281,17 @@ mod tests {
     fn 命令能力按前端声明() {
         assert!(Command::Settings.available_in(Frontend::Tui));
         assert!(!Command::Settings.available_in(Frontend::Headless));
+    }
+
+    #[test]
+    fn goal用法要求创建与编辑目标() {
+        assert_eq!(
+            Command::Goal.usage(Lang::Zh),
+            "/goal [show|<目标>|edit <目标>|pause|resume|clear]"
+        );
+        assert_eq!(
+            Command::Goal.usage(Lang::En),
+            "/goal [show|<objective>|edit <objective>|pause|resume|clear]"
+        );
     }
 }

@@ -207,7 +207,10 @@ impl Tui {
                                 log_command_run(log, invocation);
                                 if !invocation.command.accepts_args() && !invocation.args.is_empty()
                                 {
-                                    self.push(crate::command::usage(self.lang, invocation.command));
+                                    self.push(crate::command::usage_hint(
+                                        self.lang,
+                                        invocation.command,
+                                    ));
                                     log_command_done(log, invocation.command);
                                     continue;
                                 }
@@ -287,7 +290,10 @@ impl Tui {
                                         Err(error) => format!("模式已切换，但写回失败：{error}"),
                                     });
                                 } else {
-                                    self.push("用法：/tui fullscreen|default".into());
+                                    self.push(crate::command::usage_hint(
+                                        self.lang,
+                                        crate::command::Command::Tui,
+                                    ));
                                 }
                                 log_command_done(log, crate::command::Command::Tui);
                                 continue;
@@ -433,46 +439,55 @@ impl Tui {
                             if let Some(invocation) = command.filter(|invocation| {
                                 invocation.command == crate::command::Command::ApprovalMode
                             }) {
-                                let to = match invocation.args {
-                                    "ask" => Some(Mode::Ask),
-                                    "auto" if self.approver_ready => Some(Mode::Auto),
-                                    "yolo" => Some(Mode::Yolo),
-                                    _ => None,
-                                };
-                                if let Some(to) = to {
-                                    let from = ctx.mode;
-                                    let (kind, data) = crate::approval::policy_event(
-                                        from,
-                                        to,
-                                        "command",
-                                        self.approver_ready,
-                                    );
-                                    log.log(&kind, data);
-                                    ctx.mode = to;
-                                    self.mode_label = to.as_str().into();
-                                    self.push(format!("审批模式已切换：{}", to.as_str()));
-                                } else {
-                                    self.push(
-                                        "审批模式不可用；用法：/approval-mode ask|auto|yolo".into(),
-                                    );
+                                match parse_approval_mode_command(
+                                    invocation.args,
+                                    self.approver_ready,
+                                ) {
+                                    Ok(to) => {
+                                        let from = ctx.mode;
+                                        let (kind, data) = crate::approval::policy_event(
+                                            from,
+                                            to,
+                                            "command",
+                                            self.approver_ready,
+                                        );
+                                        log.log(&kind, data);
+                                        ctx.mode = to;
+                                        self.mode_label = to.as_str().into();
+                                        self.push(format!("审批模式已切换：{}", to.as_str()));
+                                    }
+                                    Err(ApprovalModeCommandError::AutoUnavailable) => {
+                                        self.push(format!(
+                                            "审批模式不可用；{}",
+                                            crate::command::usage_hint(
+                                                self.lang,
+                                                invocation.command
+                                            )
+                                        ))
+                                    }
+                                    Err(ApprovalModeCommandError::Invalid) => self.push(
+                                        crate::command::usage_hint(self.lang, invocation.command),
+                                    ),
                                 }
                                 log_command_done(log, invocation.command);
                                 continue;
                             }
                             // /goal slash command: six forms, user authority (no host proof —
                             // that gate is model-side only); runs while idle, never a model turn.
-                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Goal)
-                            {
-                                self.handle_goal_command(&text, log);
-                                log_command_done(log, crate::command::Command::Goal);
+                            if let Some(invocation) = command.filter(|invocation| {
+                                invocation.command == crate::command::Command::Goal
+                            }) {
+                                self.handle_goal_command(invocation.args, log);
+                                log_command_done(log, invocation.command);
                                 continue;
                             }
                             // /language slash command: show the current language (no arg) or
                             // switch zh/en live; the switch persists to the global config layer.
-                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Language)
-                            {
-                                self.handle_language_command(&text, ctx, log);
-                                log_command_done(log, crate::command::Command::Language);
+                            if let Some(invocation) = command.filter(|invocation| {
+                                invocation.command == crate::command::Command::Language
+                            }) {
+                                self.handle_language_command(invocation.args, ctx);
+                                log_command_done(log, invocation.command);
                                 continue;
                             }
                             if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Compact)
@@ -674,13 +689,12 @@ impl Tui {
 
     /// `resume` is the single explicit re-arm path. The dispatcher writes the command
     /// lifecycle; this handler flushes goal/change events after each mutation.
-    fn handle_goal_command(&mut self, text: &str, log: &mut SessionLog) {
+    fn handle_goal_command(&mut self, rest: &str, log: &mut SessionLog) {
         let Some(rt) = self.goal.clone() else {
             self.push(tr(self.lang, StrKey::GoalNotEnabled).into());
             let _ = self.draw();
             return;
         };
-        let rest = text.strip_prefix("/goal").unwrap_or("").trim();
         let reply: String = {
             let mut g = rt.lock();
             match rest {
@@ -747,13 +761,7 @@ impl Tui {
     /// re-localizes the idle status so the status bar reflects it immediately, and persists
     /// to the GLOBAL config layer (language is a user preference, not a project attribute).
     /// A write-back failure surfaces loudly; the in-session switch stays.
-    fn handle_language_command(
-        &mut self,
-        text: &str,
-        ctx: &mut ChatCtx<'_>,
-        _log: &mut SessionLog,
-    ) {
-        let rest = text.strip_prefix("/language").unwrap_or("").trim();
+    fn handle_language_command(&mut self, rest: &str, ctx: &mut ChatCtx<'_>) {
         let new_lang = match rest {
             "" => {
                 self.push(trf(
@@ -1149,6 +1157,23 @@ fn next_mode(from: Mode, approver_ready: bool) -> Mode {
         Mode::Ask => Mode::Yolo,
         Mode::Auto => Mode::Yolo,
         Mode::Yolo => Mode::Ask,
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ApprovalModeCommandError {
+    AutoUnavailable,
+    Invalid,
+}
+
+fn parse_approval_mode_command(
+    value: &str,
+    approver_ready: bool,
+) -> Result<Mode, ApprovalModeCommandError> {
+    match Mode::parse(value) {
+        Some(Mode::Auto) if !approver_ready => Err(ApprovalModeCommandError::AutoUnavailable),
+        Some(mode) => Ok(mode),
+        None => Err(ApprovalModeCommandError::Invalid),
     }
 }
 
@@ -1573,5 +1598,21 @@ mod tests {
             .unwrap()
             .iter()
             .all(|event| !event.kind.starts_with("command/")));
+    }
+
+    #[test]
+    fn 无代审时自动审批模式报不可用而非用法错误() {
+        assert!(matches!(
+            parse_approval_mode_command("auto", false),
+            Err(ApprovalModeCommandError::AutoUnavailable)
+        ));
+        assert!(matches!(
+            parse_approval_mode_command("ask", false),
+            Ok(Mode::Ask)
+        ));
+        assert!(matches!(
+            parse_approval_mode_command("invalid", true),
+            Err(ApprovalModeCommandError::Invalid)
+        ));
     }
 }
