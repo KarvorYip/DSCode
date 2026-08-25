@@ -152,6 +152,7 @@ pub enum StrKey {
     UsageResume,
     UsageFork,
     UnknownApprovalMode,
+    ApprovalModeUnavailable,
     TaskRestoreFailed,
     MissingApiKey,
     SubagentApiKey,
@@ -245,6 +246,7 @@ impl StrKey {
         StrKey::UsageResume,
         StrKey::UsageFork,
         StrKey::UnknownApprovalMode,
+        StrKey::ApprovalModeUnavailable,
         StrKey::TaskRestoreFailed,
         StrKey::MissingApiKey,
         StrKey::SubagentApiKey,
@@ -369,6 +371,7 @@ fn tr_zh(key: StrKey) -> &'static str {
         StrKey::UsageResume => "用法：dscode resume <session-id>",
         StrKey::UsageFork => "用法：dscode fork <session-id>",
         StrKey::UnknownApprovalMode => "未知审批模式「{}」（合法值：ask/auto/yolo）",
+        StrKey::ApprovalModeUnavailable => "审批模式不可用；{}",
         StrKey::TaskRestoreFailed => "任务状态恢复失败：{}",
         StrKey::MissingApiKey => {
             "未找到 DEEPSEK_API_KEY（凭据四层：env > ~/.dscode/.credentials.yaml > 项目 .env > ~/.dscode/.env）"
@@ -468,6 +471,7 @@ fn tr_en(key: StrKey) -> &'static str {
         StrKey::UsageResume => "usage: dscode resume <session-id>",
         StrKey::UsageFork => "usage: dscode fork <session-id>",
         StrKey::UnknownApprovalMode => "unknown approval mode \"{}\" (valid: ask/auto/yolo)",
+        StrKey::ApprovalModeUnavailable => "Approval mode is unavailable; {}",
         StrKey::TaskRestoreFailed => "task state restore failed: {}",
         StrKey::MissingApiKey => {
             "DEEPSEK_API_KEY not found (four credential tiers: env > ~/.dscode/.credentials.yaml > project .env > ~/.dscode/.env)"
@@ -525,6 +529,26 @@ mod tests {
         assert_eq!(
             trf(Lang::En, StrKey::StatusModeSwitched, &[&"ask", &"yolo"]),
             "(approval mode: ask → yolo)"
+        );
+    }
+
+    #[test]
+    fn 自动审批不可用提示随界面语言切换() {
+        assert_eq!(
+            trf(
+                Lang::Zh,
+                StrKey::ApprovalModeUnavailable,
+                &[&"用法：/approval-mode ask|auto|yolo"],
+            ),
+            "审批模式不可用；用法：/approval-mode ask|auto|yolo"
+        );
+        assert_eq!(
+            trf(
+                Lang::En,
+                StrKey::ApprovalModeUnavailable,
+                &[&"Usage: /approval-mode ask|auto|yolo"],
+            ),
+            "Approval mode is unavailable; Usage: /approval-mode ask|auto|yolo"
         );
     }
 }

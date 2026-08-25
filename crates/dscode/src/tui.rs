@@ -457,13 +457,15 @@ impl Tui {
                                         self.push(format!("审批模式已切换：{}", to.as_str()));
                                     }
                                     Err(ApprovalModeCommandError::AutoUnavailable) => {
-                                        self.push(format!(
-                                            "审批模式不可用；{}",
-                                            crate::command::usage_hint(
-                                                self.lang,
-                                                invocation.command
-                                            )
-                                        ))
+                                        let usage = crate::command::usage_hint(
+                                            self.lang,
+                                            invocation.command,
+                                        );
+                                        self.push(trf(
+                                            self.lang,
+                                            StrKey::ApprovalModeUnavailable,
+                                            &[&usage],
+                                        ));
                                     }
                                     Err(ApprovalModeCommandError::Invalid) => self.push(
                                         crate::command::usage_hint(self.lang, invocation.command),
