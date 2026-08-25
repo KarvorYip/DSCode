@@ -192,8 +192,33 @@ impl Tui {
                             }
                             self.input.clear();
                             self.cursor = 0;
-                            if text == "/wizard" {
-                                log.log("command/run", json!({ "command": "wizard", "args": "" }));
+                            let command = match crate::command::parse(&text) {
+                                Some(crate::command::Parsed::Known(invocation)) => Some(invocation),
+                                Some(crate::command::Parsed::Unknown(name)) => {
+                                    self.push(crate::command::unknown(self.lang, name));
+                                    continue;
+                                }
+                                None => None,
+                            };
+                            if let Some(invocation) = command {
+                                debug_assert!(invocation
+                                    .command
+                                    .available_in(crate::command::Frontend::Tui));
+                                log_command_run(log, invocation);
+                                if !invocation.command.accepts_args() && !invocation.args.is_empty()
+                                {
+                                    self.push(crate::command::usage(self.lang, invocation.command));
+                                    log_command_done(log, invocation.command);
+                                    continue;
+                                }
+                                if invocation.command == crate::command::Command::Help {
+                                    self.push(crate::command::help(self.lang));
+                                    log_command_done(log, invocation.command);
+                                    continue;
+                                }
+                            }
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Wizard)
+                            {
                                 self.shutdown();
                                 let result = crate::config::run_wizard();
                                 enable_raw_mode().map_err(|error| error.to_string())?;
@@ -217,14 +242,11 @@ impl Tui {
                                     },
                                     Err(error) => self.push(format!("wizard 失败：{error}")),
                                 }
-                                log.log("command/done", json!({ "command": "wizard" }));
+                                log_command_done(log, crate::command::Command::Wizard);
                                 continue;
                             }
-                            if text == "/settings" {
-                                log.log(
-                                    "command/run",
-                                    json!({ "command": "settings", "args": "" }),
-                                );
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Settings)
+                            {
                                 match crate::config::Config::load() {
                                     Ok(config) => match self
                                         .apply_runtime_config(provider, ctx, config)
@@ -245,11 +267,12 @@ impl Tui {
                                     },
                                     Err(error) => self.push(format!("配置热加载失败：{error}")),
                                 }
-                                log.log("command/done", json!({ "command": "settings" }));
+                                log_command_done(log, crate::command::Command::Settings);
                                 continue;
                             }
-                            if text == "/tui" || text.starts_with("/tui ") {
-                                let value = text.strip_prefix("/tui").unwrap_or("").trim();
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Tui)
+                            {
+                                let value = command.expect("/tui command was parsed").args;
                                 let mode = match value {
                                     "fullscreen" => Some(RenderMode::Fullscreen),
                                     "default" | "inline" => Some(RenderMode::Inline),
@@ -266,10 +289,12 @@ impl Tui {
                                 } else {
                                     self.push("用法：/tui fullscreen|default".into());
                                 }
+                                log_command_done(log, crate::command::Command::Tui);
                                 continue;
                             }
-                            if text == "/export" || text.starts_with("/export ") {
-                                let value = text.strip_prefix("/export").unwrap_or("").trim();
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Export)
+                            {
+                                let value = command.expect("/export command was parsed").args;
                                 let dir = if value.is_empty() {
                                     std::env::current_dir()
                                         .unwrap_or_else(|_| Path::new(".").to_path_buf())
@@ -277,10 +302,6 @@ impl Tui {
                                 } else {
                                     Path::new(value).to_path_buf()
                                 };
-                                log.log(
-                                    "command/run",
-                                    json!({ "command": "export", "args": value }),
-                                );
                                 self.push(match log.export(&dir) {
                                     Ok((markdown, jsonl)) => format!(
                                         "会话已导出：{}；{}",
@@ -289,7 +310,7 @@ impl Tui {
                                     ),
                                     Err(error) => format!("导出失败：{error}"),
                                 });
-                                log.log("command/done", json!({ "command": "export" }));
+                                log_command_done(log, crate::command::Command::Export);
                                 continue;
                             }
                             if let Some(path) = text.strip_prefix("@claude ") {
@@ -328,8 +349,9 @@ impl Tui {
                                 log.log("command/done", json!({ "command": "import-claude" }));
                                 continue;
                             }
-                            if text == "/sessions" || text.starts_with("/sessions ") {
-                                let selection = text.strip_prefix("/sessions").unwrap_or("").trim();
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Sessions)
+                            {
+                                let selection = command.expect("/sessions command was parsed").args;
                                 let cwd = std::env::current_dir()
                                     .map(|path| path.display().to_string())
                                     .unwrap_or_default();
@@ -337,20 +359,23 @@ impl Tui {
                                     &ctx.config.sessions_dir,
                                     &cwd,
                                 ) {
-                                    Ok(entries) if selection.is_empty() => self.push(format!(
-                                        "会话选择器（用 /sessions <序号或 id> 恢复）：\n{}",
-                                        entries
-                                            .iter()
-                                            .enumerate()
-                                            .map(|(index, entry)| format!(
-                                                "{}. {}  {}",
-                                                index + 1,
-                                                entry.id,
-                                                entry.title.as_deref().unwrap_or("（无标题）")
-                                            ))
-                                            .collect::<Vec<_>>()
-                                            .join("\n")
-                                    )),
+                                    Ok(entries) if selection.is_empty() => {
+                                        self.push(format!(
+                                            "会话选择器（用 /sessions <序号或 id> 恢复）：\n{}",
+                                            entries
+                                                .iter()
+                                                .enumerate()
+                                                .map(|(index, entry)| format!(
+                                                    "{}. {}  {}",
+                                                    index + 1,
+                                                    entry.id,
+                                                    entry.title.as_deref().unwrap_or("（无标题）")
+                                                ))
+                                                .collect::<Vec<_>>()
+                                                .join("\n")
+                                        ));
+                                        log_command_done(log, crate::command::Command::Sessions);
+                                    }
                                     Ok(entries) => {
                                         let selected = selection
                                             .parse::<usize>()
@@ -362,33 +387,53 @@ impl Tui {
                                             })
                                             .map(|entry| entry.id.clone());
                                         match selected {
-                                            Some(id) => match self.switch_session(
-                                                &id, log, ctx, messages, &mut turn,
-                                            ) {
-                                                Ok(()) => {}
-                                                Err(error) => {
-                                                    self.push(format!("恢复会话失败：{error}"))
+                                            Some(id) => {
+                                                // `switch_session` replaces `log`, so both lifecycle events
+                                                // must be closed on the source session before switching.
+                                                log_command_done(
+                                                    log,
+                                                    crate::command::Command::Sessions,
+                                                );
+                                                if let Err(error) = self.switch_session(
+                                                    &id, log, ctx, messages, &mut turn,
+                                                ) {
+                                                    self.push(format!("恢复会话失败：{error}"));
                                                 }
-                                            },
-                                            None => self.push(format!(
-                                                "未找到会话「{selection}」；先用 /sessions 查看列表。"
-                                            )),
+                                            }
+                                            None => {
+                                                self.push(format!(
+                                                    "未找到会话「{selection}」；先用 /sessions 查看列表。"
+                                                ));
+                                                log_command_done(
+                                                    log,
+                                                    crate::command::Command::Sessions,
+                                                );
+                                            }
                                         }
                                     }
-                                    Err(error) => self.push(format!("读取会话失败：{error}")),
+                                    Err(error) => {
+                                        self.push(format!("读取会话失败：{error}"));
+                                        log_command_done(log, crate::command::Command::Sessions);
+                                    }
                                 }
                                 continue;
                             }
-                            if text == "/agents" {
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Agents)
+                            {
                                 self.agent_panel = !self.agent_panel;
+                                log_command_done(log, crate::command::Command::Agents);
                                 continue;
                             }
-                            if text == "/hotkeys" {
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Hotkeys)
+                            {
                                 self.push("快捷键：Shift+Enter 换行；PageUp/PageDown 滚动；Ctrl+T thinking；Ctrl+O 工具输出；Ctrl+A Agent Hub；Shift+Tab 审批模式。".into());
+                                log_command_done(log, crate::command::Command::Hotkeys);
                                 continue;
                             }
-                            if let Some(value) = text.strip_prefix("/approval-mode ") {
-                                let to = match value.trim() {
+                            if let Some(invocation) = command.filter(|invocation| {
+                                invocation.command == crate::command::Command::ApprovalMode
+                            }) {
+                                let to = match invocation.args {
                                     "ask" => Some(Mode::Ask),
                                     "auto" if self.approver_ready => Some(Mode::Auto),
                                     "yolo" => Some(Mode::Yolo),
@@ -411,24 +456,29 @@ impl Tui {
                                         "审批模式不可用；用法：/approval-mode ask|auto|yolo".into(),
                                     );
                                 }
+                                log_command_done(log, invocation.command);
                                 continue;
                             }
                             // /goal slash command: six forms, user authority (no host proof —
                             // that gate is model-side only); runs while idle, never a model turn.
-                            if text == "/goal" || text.starts_with("/goal ") {
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Goal)
+                            {
                                 self.handle_goal_command(&text, log);
+                                log_command_done(log, crate::command::Command::Goal);
                                 continue;
                             }
                             // /language slash command: show the current language (no arg) or
                             // switch zh/en live; the switch persists to the global config layer.
-                            if text == "/language" || text.starts_with("/language ") {
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Language)
+                            {
                                 self.handle_language_command(&text, ctx, log);
+                                log_command_done(log, crate::command::Command::Language);
                                 continue;
                             }
-                            if text == "/compact" {
-                                log.log("command/run", json!({ "command": "compact", "args": "" }));
+                            if matches!(command, Some(invocation) if invocation.command == crate::command::Command::Compact)
+                            {
                                 compact_now(provider, messages, log, self, ctx).await?;
-                                log.log("command/done", json!({ "command": "compact" }));
+                                log_command_done(log, crate::command::Command::Compact);
                                 self.push("会话上下文压缩完成。".into());
                                 continue;
                             }
@@ -622,10 +672,8 @@ impl Tui {
         self.transcript.push(line);
     }
 
-    /// `/goal` six forms (goal.zh.md §用户命令与 TUI): show (default) / <objective> (create) /
-    /// edit / pause / resume / clear. User authority — no host proof (model-side gate only);
-    /// `resume` is the single explicit re-arm path. command/run + command/done are logged;
-    /// goal/change events flush from the runtime queue after each mutation.
+    /// `resume` is the single explicit re-arm path. The dispatcher writes the command
+    /// lifecycle; this handler flushes goal/change events after each mutation.
     fn handle_goal_command(&mut self, text: &str, log: &mut SessionLog) {
         let Some(rt) = self.goal.clone() else {
             self.push(tr(self.lang, StrKey::GoalNotEnabled).into());
@@ -633,7 +681,6 @@ impl Tui {
             return;
         };
         let rest = text.strip_prefix("/goal").unwrap_or("").trim();
-        log.log("command/run", json!({ "command": "goal", "args": rest }));
         let reply: String = {
             let mut g = rt.lock();
             match rest {
@@ -691,7 +738,6 @@ impl Tui {
         for data in rt.lock().drain_events() {
             log.log("goal/change", data);
         }
-        log.log("command/done", json!({ "command": "goal" }));
         self.push(reply);
         let _ = self.draw();
     }
@@ -701,12 +747,13 @@ impl Tui {
     /// re-localizes the idle status so the status bar reflects it immediately, and persists
     /// to the GLOBAL config layer (language is a user preference, not a project attribute).
     /// A write-back failure surfaces loudly; the in-session switch stays.
-    fn handle_language_command(&mut self, text: &str, ctx: &mut ChatCtx<'_>, log: &mut SessionLog) {
+    fn handle_language_command(
+        &mut self,
+        text: &str,
+        ctx: &mut ChatCtx<'_>,
+        _log: &mut SessionLog,
+    ) {
         let rest = text.strip_prefix("/language").unwrap_or("").trim();
-        log.log(
-            "command/run",
-            json!({ "command": "language", "args": rest }),
-        );
         let new_lang = match rest {
             "" => {
                 self.push(trf(
@@ -714,7 +761,6 @@ impl Tui {
                     StrKey::LanguageCurrent,
                     &[&self.lang.as_str()],
                 ));
-                log.log("command/done", json!({ "command": "language" }));
                 let _ = self.draw();
                 return;
             }
@@ -722,7 +768,6 @@ impl Tui {
             "en" => Lang::En,
             other => {
                 self.push(trf(self.lang, StrKey::LanguageInvalid, &[&other]));
-                log.log("command/done", json!({ "command": "language" }));
                 let _ = self.draw();
                 return;
             }
@@ -739,7 +784,6 @@ impl Tui {
                 &[&new_lang.as_str() as &dyn std::fmt::Display, &e],
             ),
         };
-        log.log("command/done", json!({ "command": "language" }));
         self.push(reply);
         let _ = self.draw();
     }
@@ -1435,6 +1479,17 @@ impl UiSink for Tui {
     }
 }
 
+fn log_command_run(log: &mut SessionLog, invocation: crate::command::Invocation<'_>) {
+    log.log(
+        "command/run",
+        json!({ "command": invocation.command.name(), "args": invocation.args }),
+    );
+}
+
+fn log_command_done(log: &mut SessionLog, command: crate::command::Command) {
+    log.log("command/done", json!({ "command": command.name() }));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1483,5 +1538,40 @@ mod tests {
         assert_eq!(content(&rows[0]), "前 ");
         assert_eq!(content(&rows[1]), "中文");
         assert_eq!(rows[0].spans[1].style.bg, Some(Color::Yellow));
+    }
+
+    #[test]
+    fn 会话切换命令对写入原会话日志() {
+        let root = tempfile::tempdir().unwrap();
+        let mut source = crate::session::SessionLog::create("source", root.path()).unwrap();
+        let target = crate::session::SessionLog::create("target", root.path()).unwrap();
+        let invocation = crate::command::Invocation {
+            command: crate::command::Command::Sessions,
+            args: "target",
+        };
+
+        log_command_run(&mut source, invocation);
+        log_command_done(&mut source, invocation.command);
+
+        let source_events = source
+            .read_all()
+            .unwrap()
+            .into_iter()
+            .filter(|event| event.kind.starts_with("command/"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            source_events
+                .iter()
+                .map(|event| event.kind.as_str())
+                .collect::<Vec<_>>(),
+            ["command/run", "command/done"]
+        );
+        assert_eq!(source_events[0].data["command"], "sessions");
+        assert_eq!(source_events[0].data["args"], "target");
+        assert!(target
+            .read_all()
+            .unwrap()
+            .iter()
+            .all(|event| !event.kind.starts_with("command/")));
     }
 }

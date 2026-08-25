@@ -8,9 +8,9 @@ use crate::llm::{LlmProvider, Message, ToolCall};
 use crate::session::SessionLog;
 use std::io::BufRead;
 
-/// Headless sink state: the suspension status line prints once per suspension
-/// (stdout status line, limits.zh.md §headless). `lang` comes from the same config
-/// as the TUI (tui.language); there is no interactive /language here.
+/// Headless sink state: the suspension status line prints once per suspension.
+/// `lang` comes from the same config as the TUI; registered slash commands are
+/// rejected before they become a model turn because headless has no interactive surface.
 pub struct Headless {
     suspend_announced: bool,
     lang: Lang,
@@ -102,10 +102,17 @@ pub async fn run<P: LlmProvider>(
     if prompt.is_empty() {
         return Ok(());
     }
-    // /language has no interactive surface here (config-onboarding.zh.md §TUI 显示语言):
-    // the display language is config-only in headless mode.
-    if prompt == "/language" || prompt.starts_with("/language ") {
-        println!("{}", tr(ctx.lang, StrKey::HeadlessLanguageUnavailable));
+    if let Some(parsed) = crate::command::parse(&prompt) {
+        let message = match parsed {
+            crate::command::Parsed::Known(invocation) => {
+                debug_assert!(!invocation
+                    .command
+                    .available_in(crate::command::Frontend::Headless));
+                crate::command::unavailable(ctx.lang, invocation.command)
+            }
+            crate::command::Parsed::Unknown(name) => crate::command::unknown(ctx.lang, name),
+        };
+        println!("{message}");
         return Ok(());
     }
     let turn = messages

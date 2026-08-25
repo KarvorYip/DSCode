@@ -56,6 +56,12 @@ cargo build --release
 
 状态行始终显示当前审批模式；yolo 以红色高亮作为常显警示。
 
+## 斜杠命令（TUI）
+
+输入 `/help` 查看由统一注册表提供的命令与用法。首发命令为 `/wizard`、`/settings`、`/tui fullscreen|default`、`/export [目录]`、`/sessions [序号或 id]`、`/agents`、`/hotkeys`、`/approval-mode ask|auto|yolo`、`/goal`、`/language [zh|en]`、`/compact`。
+
+已注册命令在 TUI 本地执行，不会作为普通消息交给模型；未知命令会提示输入 `/help`。路径形态（如 `/tmp/file`）仍是普通对话输入。headless 首发不执行交互式命令，会明确报告该命令仅支持 TUI。
+
 任务工具的状态存于会话内：变更记为 `task/write` 事件（resume/fork 时回放重建），TUI 从同一投影渲染任务面板（状态图标 + 标题；in_progress 高亮）。
 
 ## 工具面
@@ -100,6 +106,7 @@ crates/dscode/
   src/main.rs           # CLI 解析与组装（sessions/resume/fork、审批模式、provider/approver）
   src/llm.rs            # LlmProvider (chat_stream + complete) + DeepSeek(SSE) + Mock（多工具脚本）
   src/chat.rs           # 回合循环: 注册表派发、审批门、hooks、compaction、标题
+  src/command.rs        # 共享 slash-command 注册、解析、发现与前端可用性
   src/tui.rs            # ratatui inline viewport + 决策卡 + 模式显示 + Shift+Tab + resume 转录
   src/headless.rs       # headless stdout 前端（审批 fail-closed）
   src/tool/             # Tool trait + Registry + bash/read/write/edit/glob/grep

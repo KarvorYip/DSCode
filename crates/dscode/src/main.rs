@@ -5,6 +5,7 @@
 mod agent;
 mod approval;
 mod chat;
+mod command;
 mod config;
 mod goal;
 mod headless;

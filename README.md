@@ -54,6 +54,12 @@ Config is two-layer YAML (`~/.dscode/config.yaml` global, `.dscode/config.yaml` 
 | Ctrl+C / Ctrl+D | Exit |
 | ←/→/Home/End/Backspace/Delete/Paste | Input editing |
 
+## Slash commands (TUI)
+
+Enter `/help` to list commands and usage from the shared registry. The first-release set is `/wizard`, `/settings`, `/tui fullscreen|default`, `/export [directory]`, `/sessions [index or id]`, `/agents`, `/hotkeys`, `/approval-mode ask|auto|yolo`, `/goal`, `/language [zh|en]`, and `/compact`.
+
+Registered commands execute locally in the TUI and are never sent to the model; unknown commands point to `/help`. Path-shaped input such as `/tmp/file` remains an ordinary prompt. The first headless release does not execute interactive commands and reports that they are TUI-only.
+
 Config is two-layer YAML (`~/.dscode/config.yaml` global, `.dscode/config.yaml` project override): `approval.mode` (default auto), `modelRoles` (six roles; with `approver` unconfigured, auto falls to yolo with a one-time notice), `tools.approval.<tool>` (allow/deny/prompt), `bash.patterns` (allow/deny/prompt with compound-command segmentation), `compaction.autoThreshold` (default 0.8; null disables), `hooks` (event → block / rewrite / notify), `goal.enabled` (default true, mounts the goal stack in the TUI; headless never mounts), `goal.defaultMaxGoalRounds` (default 50, null = unlimited), `autoContinue.enabled` (default true, limit-recovery auto continue; the goal-rearm linkage rides this switch), `tui.language` (zh/en UI display language, default zh). Syntax and field errors abort startup with file:line.
 
 Task tools keep state session-resident: mutations are recorded as `task/write` events (replayed on resume/fork), and the TUI renders a task panel (status icon + title, in_progress highlighted) from the same projection.
@@ -132,6 +138,7 @@ crates/dscode/
   src/main.rs           # CLI parsing and assembly (sessions/resume/fork, approval mode, provider/approver)
   src/llm.rs            # LlmProvider (chat_stream + complete) + DeepSeek(SSE) + Mock (multi-tool script)
   src/chat.rs           # Turn loop: registry dispatch, approval gate, hooks, compaction, titles
+  src/command.rs        # Shared slash-command registry, parser, discovery, and frontend availability
   src/tui.rs            # ratatui inline viewport + decision card + mode display + Shift+Tab + resume transcript
   src/headless.rs       # headless stdout frontend (approval fails closed)
   src/tool/             # Tool trait + Registry + ToolCtx + bash/read/write/edit/glob/grep/spawn/hub(+yield)

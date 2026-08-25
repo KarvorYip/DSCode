@@ -145,7 +145,6 @@ pub enum StrKey {
     /// Tool call line; args: name, arguments.
     HeadlessToolCall,
     HeadlessPromptHint,
-    HeadlessLanguageUnavailable,
     // ---- main.rs startup ----
     ConfigErrorPrefix,
     HooksErrorPrefix,
@@ -240,7 +239,6 @@ impl StrKey {
         StrKey::DeniedSession,
         StrKey::HeadlessToolCall,
         StrKey::HeadlessPromptHint,
-        StrKey::HeadlessLanguageUnavailable,
         StrKey::ConfigErrorPrefix,
         StrKey::HooksErrorPrefix,
         StrKey::YoloNotice,
@@ -363,9 +361,6 @@ fn tr_zh(key: StrKey) -> &'static str {
         StrKey::DeniedSession => "（已拒绝，本会话记住）",
         StrKey::HeadlessToolCall => "→ 工具调用 {}：{}",
         StrKey::HeadlessPromptHint => "请输入提示词（Ctrl+D 结束）：",
-        StrKey::HeadlessLanguageUnavailable => {
-            "/language 在 headless 模式不可用（无交互界面）；显示语言由配置键 tui.language 决定"
-        }
         StrKey::ConfigErrorPrefix => "配置错误：",
         StrKey::HooksErrorPrefix => "hooks 配置错误：",
         StrKey::YoloNotice => {
@@ -465,9 +460,6 @@ fn tr_en(key: StrKey) -> &'static str {
         StrKey::DeniedSession => "(denied, remembered for this session)",
         StrKey::HeadlessToolCall => "→ tool call {}: {}",
         StrKey::HeadlessPromptHint => "Enter a prompt (Ctrl+D to finish):",
-        StrKey::HeadlessLanguageUnavailable => {
-            "/language is unavailable in headless mode (no interactive surface); the display language comes from the tui.language config key"
-        }
         StrKey::ConfigErrorPrefix => "config error: ",
         StrKey::HooksErrorPrefix => "hooks config error: ",
         StrKey::YoloNotice => {
